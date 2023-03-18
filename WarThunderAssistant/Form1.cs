@@ -1,58 +1,78 @@
 using HtmlAgilityPack;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 using System.Text.RegularExpressions;
 using System.Timers;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 
 namespace WarThunderAssistant
 {
     public partial class Form1 : Form
     {
+        /// <summary>
+        /// Object used for "emulating" the site
+        /// </summary>
+        private WebDriver WebDriver;
+
+        
+        void UpdateLabelText(Label label, string text)
+        {
+
+            this.Invoke(() =>
+            {
+                label.Text = text;
+            });
+        }
+        //void UpdateLabel(Label label, string id, string formatting)
+        //{
+        //    if (currentHtmlDoc is null) return;
+
+        //    HtmlNode elementNode = currentHtmlDoc.GetElementbyId(id);
+        //    if (elementNode is null)
+        //        UpdateLabelText(label, string.Format(formatting, "[NULL]"));
+        //    else
+        //        UpdateLabelText(label, string.Format(formatting, elementNode.InnerText));
+        //}
+
         public Form1()
         {
             InitializeComponent();
-            Timer();
+
+            Init();
         }
 
-        private void Timer()
+        /// <summary>
+        /// Initializes the entire software, downloads page
+        /// </summary>
+        void Init()
         {
-            System.Timers.Timer aTimer = new System.Timers.Timer(100);
+            //Add handler to exit the browser emulator
+            Application.ApplicationExit += this.Application_ApplicationExit;
             
-            aTimer.AutoReset = true;
-            aTimer.Elapsed += HtmlChecker;
-            aTimer.Enabled = true;
+            //Create options for WebDriver
+            ChromeOptions webDriverOptions = new ChromeOptions();
+            webDriverOptions.AddArgument("--headless");
+
+            //Create the web driver
+            WebDriver = new ChromeDriver(webDriverOptions);
+            WebDriver.Navigate().GoToUrl("http://127.0.0.1:8111");
+
+            System.Timers.Timer t = new System.Timers.Timer(100);
+            t.Elapsed += this.UpdateForm;
+            t.AutoReset = true;
+            t.Enabled = true;
         }
 
-
-        private void HtmlChecker(Object source, ElapsedEventArgs e)
+        private void Application_ApplicationExit(object? sender, EventArgs e)
         {
-            var html = @"http://localhost:8111/";
-            //var html = @"C:\Users\samue\Documents\localhost.htm";
-            HtmlWeb web = new HtmlWeb();
-            var htmlDoc = web.Load(html);
+            WebDriver.Quit();
+            WebDriver.Dispose();
+        }
 
-            //TAS (True Airspeed)
-            string tas = htmlDoc.GetElementbyId("stt-TAS, km/h").InnerText;
-            tas = tas.Remove(0, 10);
-            tas = "TAS: " + tas + "km/h";
-
-            //IAS (Indicated Airspeed)
-            string ias = htmlDoc.GetElementbyId("stt-IAS, km/h").InnerText;
-            ias = ias.Remove(0, 10);
-            ias = "IAS: " + ias + "km/h";
-
-            //Current fuel left
-            string fuel = htmlDoc.GetElementbyId("ind-fuel").InnerText.Remove(0, 5).Replace('.', ',');
-            double fuelD = double.Parse(fuel);
-            string fuelConsumption = htmlDoc.GetElementbyId("ind-fuel_consume").InnerText.Remove(0, 13).Replace('.', ',');
-            double fuelConsumptionD = double.Parse(fuelConsumption);
-
-            string fuelLeftS = Math.Round(fuelD / fuelConsumptionD).ToString();
-            string fuelLeft = "Fuel: " + fuelLeftS;
-
-            Invoke(new Action(() =>{
-                tasLabel.Text = tas;
-                iasLabel.Text = ias;
-                fuelLeftLabel.Text = fuelLeft;
-            }));
+        private void UpdateForm(Object source, ElapsedEventArgs e)
+        {
+            IWebElement element = WebDriver.FindElement(By.Id("stt-TAS, km/h"));
+            UpdateLabelText(this.tasLabel, element.Text);
         }
     }
 }
